@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CENTCOM // Middle East Military Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00ff88;
+    --red: #ff3333;
+    --yellow: #ffcc00;
+    --blue: #00aaff;
+    --orange: #ff8800;
+    --purple: #cc44ff;
+    --bg: #020c0e;
+    --panel: #041418;
+    --border: #0a3040;
+    --text: #7ecfdf;
+    --dim: #2a5560;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Grid layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 260px;
+    grid-template-rows: 56px 1fr 160px;
+    height: 100vh;
+    gap: 2px;
+    background: #010a0c;
+    padding: 2px;
+  }
+
+  /* HEADER */
+  .header {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    animation: scanH 3s linear infinite;
+  }
+  @keyframes scanH { 0%{opacity:0.3} 50%{opacity:1} 100%{opacity:0.3} }
+
+  .header-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 15px;
+    font-weight: 900;
+    color: var(--green);
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px var(--green);
+  }
+  .header-title span { color: var(--text); font-weight: 400; }
+
+  .header-stats {
+    display: flex;
+    gap: 30px;
+    font-size: 11px;
+    color: var(--dim);
+  }
+  .header-stats .val { color: var(--green); }
+  .header-stats .alert { color: var(--red); animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .clock {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    color: var(--yellow);
+    letter-spacing: 2px;
+  }
+
+  /* PANELS */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+  }
+  .panel-title {
+    padding: 8px 12px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+  /* MAP */
+  .map-container {
+    position: relative;
+    background: #020f14;
+    overflow: hidden;
+  }
+
+  svg#map {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Country colors on map */
+  .country { fill: #051820; stroke: #0a4060; stroke-width: 0.5; transition: fill 0.3s; cursor: pointer; }
+  .country:hover { fill: #0a2535; }
+  .country.highlight-us { fill: #001a2e; stroke: #00aaff; stroke-width: 1; }
+  .country.highlight-israel { fill: #1a1400; stroke: #ffcc00; stroke-width: 1; }
+  .country.highlight-iran { fill: #1a0a00; stroke: #ff8800; stroke-width: 1; }
+  .country.highlight-saudi { fill: #1a0000; stroke: #ff3333; stroke-width: 1; }
+  .country.highlight-uae { fill: #001a0a; stroke: #00ff88; stroke-width: 1; }
+
+  /* Range rings */
+  .range-ring {
+    fill: none;
+    stroke-dasharray: 4,4;
+    opacity: 0.3;
+    animation: ringPulse 3s ease-in-out infinite;
+  }
+  @keyframes ringPulse { 0%,100%{opacity:0.2} 50%{opacity:0.5} }
+
+  /* Base markers */
+  .base-marker {
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .base-marker:hover .base-dot { r: 8; }
+  .base-dot { transition: r 0.2s; }
+
+  .base-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    fill: rgba(255,255,255,0.7);
+    pointer-events: none;
+  }
+
+  /* Tooltip */
+  #tooltip {
+    position: absolute;
+    background: rgba(2,15,20,0.95);
+    border: 1px solid var(--green);
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--text);
+    pointer-events: none;
+    z-index: 100;
+    min-width: 200px;
+    box-shadow: 0 0 20px rgba(0,255,136,0.2);
+    display: none;
+  }
+  #tooltip .tt-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    color: var(--green);
+    margin-bottom: 6px;
+    letter-spacing: 2px;
+  }
+  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 20px; margin: 2px 0; }
+  #tooltip .tt-val { color: var(--yellow); }
+
+  /* LEFT PANEL - Country Intel */
+  .country-list { padding: 8px; overflow-y: auto; height: calc(100% - 35px); }
+  .country-card {
+    border: 1px solid var(--border);
+    padding: 10px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .country-card:hover { border-color: var(--green); background: rgba(0,255,136,0.03); }
+  .country-card.active { border-color: var(--green); background: rgba(0,255,136,0.05); }
+  .country-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .card-usa::before { background: var(--blue); }
+  .card-israel::before { background: var(--yellow); }
+  .card-iran::before { background: var(--orange); }
+  .card-saudi::before { background: var(--red); }
+  .card-uae::before { background: var(--green); }
+  .card-russia::before { background: var(--purple); }
+
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .card-name { font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 2px; }
+  .card-usa .card-name { color: var(--blue); }
+  .card-israel .card-name { color: var(--yellow); }
+  .card-iran .card-name { color: var(--orange); }
+  .card-saudi .card-name { color: var(--red); }
+  .card-uae .card-name { color: var(--green); }
+  .card-russia .card-name { color: var(--purple); }
+
+  .threat-badge {
+    font-size: 8px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    letter-spacing: 1px;
+  }
+  .threat-critical { background: rgba(255,51,51,0.2); color: var(--red); border: 1px solid var(--red); }
+  .threat-high { background: rgba(255,136,0,0.2); color: var(--orange); border: 1px solid var(--orange); }
+  .threat-medium { background: rgba(255,204,0,0.2); color: var(--yellow); border: 1px solid var(--yellow); }
+  .threat-low { background: rgba(0,255,136,0.2); color: var(--green); border: 1px solid var(--green); }
+
+  .card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 9px; }
+  .stat-item { color: var(--dim); }
+  .stat-item span { color: var(--text); display: block; }
+
+  /* RIGHT PANEL - Asset Details */
+  .asset-panel { padding: 8px; overflow-y: auto; height: calc(100% - 35px); }
+  .asset-section { margin-bottom: 14px; }
+  .asset-section-title {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .asset-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 10px;
+    border-bottom: 1px solid rgba(10,48,64,0.5);
+    align-items: center;
+  }
+  .asset-name { color: var(--text); }
+  .asset-count { color: var(--yellow); font-family: 'Orbitron', sans-serif; font-size: 10px; }
+  .asset-bar {
+    height: 2px;
+    background: var(--border);
+    margin-top: 2px;
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .asset-bar-fill { height: 100%; border-radius: 1px; transition: width 1s ease; }
+
+  /* BOTTOM BAR */
+  .bottom-bar {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  .intel-feed {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    border-right: 1px solid var(--border);
+  }
+  .intel-feed-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .feed-scroll {
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 28px);
+    overflow: hidden;
+    position: relative;
+  }
+  .feed-item {
+    padding: 5px 12px;
+    font-size: 10px;
+    border-bottom: 1px solid rgba(10,48,64,0.4);
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .feed-time { color: var(--dim); min-width: 50px; }
+  .feed-text { color: var(--text); }
+  .feed-critical .feed-text { color: var(--red); }
+  .feed-warning .feed-text { color: var(--orange); }
+  .feed-info .feed-text { color: var(--green); }
+
+  .stockpile-bars {
+    width: 400px;
+    padding: 8px 14px;
+    border-right: 1px solid var(--border);
+  }
+  .stockpile-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    margin-bottom: 8px;
+  }
+  .stockpile-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 9px; }
+  .stockpile-country { width: 55px; color: var(--text); }
+  .stockpile-bar-wrap { flex: 1; height: 10px; background: var(--border); border-radius: 1px; overflow: hidden; }
+  .stockpile-bar-fill { height: 100%; border-radius: 1px; transition: width 1.5s ease; }
+  .stockpile-val { width: 50px; text-align: right; color: var(--yellow); }
+
+  .status-grid {
+    width: 180px;
+    padding: 8px 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    align-content: start;
+  }
+  .status-item {
+    background: rgba(10,48,64,0.3);
+    padding: 5px 8px;
+    font-size: 9px;
+    text-align: center;
+  }
+  .status-label { color: var(--dim); font-size: 8px; }
+  .status-val { color: var(--green); font-family: 'Orbitron', sans-serif; font-size: 11px; }
+
+  /* Animated scan line on map */
+  .scan-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0,255,136,0.5), transparent);
+    animation: scanV 4s linear infinite;
+    pointer-events: none;
+    z-index: 10;
+  }
+  @keyframes scanV { 0%{top:-2px;opacity:0} 10%{opacity:1} 90%{opacity:1} 100%{top:100%;opacity:0} }
+
+  /* Legend */
+  .map-legend {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(2,15,20,0.85);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    font-size: 9px;
+    z-index: 20;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .legend-text { color: var(--dim); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:20px">
+      <div class="header-title">CENTCOM // <span>MIDDLE EAST MILITARY INTELLIGENCE</span></div>
+      <div style="width:1px;height:24px;background:var(--border)"></div>
+      <div style="font-size:10px;color:var(--dim)">CLASSIFICATION: <span style="color:var(--red);animation:blink 1s infinite">OPEN SOURCE INTEL</span></div>
+    </div>
+    <div class="header-stats">
+      <div>TRACKED ASSETS: <span class="val">847</span></div>
+      <div>ACTIVE BASES: <span class="val">124</span></div>
+      <div>CONFLICT ZONES: <span class="val alert">7</span></div>
+      <div>THREAT LEVEL: <span class="val alert">ELEVATED</span></div>
+    </div>
+    <div class="clock" id="clock">--:--:-- UTC</div>
+  </div>
+
+  <!-- LEFT PANEL -->
+  <div class="panel">
+    <div class="panel-title">COUNTRY INTELLIGENCE</div>
+    <div class="country-list">
+
+      <div class="country-card card-usa active" onclick="selectCountry('usa')">
+        <div class="card-header">
+          <div class="card-name">UNITED STATES</div>
+          <div class="threat-badge threat-low">ALLY</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">BASES IN REGION<span>30+</span></div>
+          <div class="stat-item">PERSONNEL<span>~40,000</span></div>
+          <div class="stat-item">WARHEADS (TOTAL)<span>5,500</span></div>
+          <div class="stat-item">CARRIER GROUPS<span>2</span></div>
+        </div>
+      </div>
+
+      <div class="country-card card-israel" onclick="selectCountry('israel')">
+        <div class="card-header">
+          <div class="card-name">ISRAEL</div>
+          <div class="threat-badge threat-medium">PARTNER</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">AIRBASES<span>10</span></div>
+          <div class="stat-item">ACTIVE FORCES<span>170,000</span></div>
+          <div class="stat-item">EST. WARHEADS<span>~90</span></div>
+          <div class="stat-item">MISSILE SYSTEMS<span>Jericho III</span></div>
+        </div>
+      </div>
+
+      <div class="country-card card-iran" onclick="selectCountry('iran')">
+        <div class="card-header">
+          <div class="card-name">IRAN</div>
+          <div class="threat-badge threat-critical">ADVERSARY</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">MISSILE SITES<span>25+</span></div>
+          <div class="stat-item">ACTIVE FORCES<span>610,000</span></div>
+          <div class="stat-item">NUCLEAR STATUS<span>~60% enrich</span></div>
+          <div class="stat-item">PROXY FORCES<span>Hezbollah+</span></div>
+        </div>
+      </div>
+
+      <div class="country-card card-saudi" onclick="selectCountry('saudi')">
+        <div class="card-header">
+          <div class="card-name">SAUDI ARABIA</div>
+          <div class="threat-badge threat-medium">PARTNER</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">AIR BASES<span>8</span></div>
+          <div class="stat-item">ACTIVE FORCES<span>257,000</span></div>
+          <div class="stat-item">MISSILE SYSTEM<span>DF-21 (CN)</span></div>
+          <div class="stat-item">F-15 FLEET<span>200+</span></div>
+        </div>
+      </div>
+
+      <div class="country-card card-uae" onclick="selectCountry('uae')">
+        <div class="card-header">
+          <div class="card-name">UAE</div>
+          <div class="threat-badge threat-low">PARTNER</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">US BASE<span>Al Dhafra</span></div>
+          <div class="stat-item">ACTIVE FORCES<span>63,000</span></div>
+          <div class="stat-item">F-35 ORDER<span>50 units</span></div>
+          <div class="stat-item">PATRIOT BATT.<span>3</span></div>
+        </div>
+      </div>
+
+      <div class="country-card card-russia" onclick="selectCountry('russia')">
+        <div class="card-header">
+          <div class="card-name">RUSSIA (SYRIA)</div>
+          <div class="threat-badge threat-high">MONITOR</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">BASES (SYRIA)<span>2</span></div>
+          <div class="stat-item">NAVAL (MED)<span>Active</span></div>
+          <div class="stat-item">S-400 DEPLOY<span>Active</span></div>
+          <div class="stat-item">TOTAL WARHEADS<span>6,257</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div class="panel map-container" id="mapContainer">
+    <div class="scan-line"></div>
+    <div id="tooltip"></div>
+
+    <svg id="map" viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bgGrad" cx="50%" cy="50%">
+          <stop offset="0%" stop-color="#031520"/>
+          <stop offset="100%" stop-color="#020c0e"/>
+        </radialGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Ocean background -->
+      <rect width="900" height="520" fill="url(#bgGrad)"/>
+
+      <!-- Grid lines -->
+      <g stroke="#071a22" stroke-width="0.5" opacity="0.6">
+        <line x1="0" y1="100" x2="900" y2="100"/>
+        <line x1="0" y1="200" x2="900" y2="200"/>
+        <line x1="0" y1="300" x2="900" y2="300"/>
+        <line x1="0" y1="400" x2="900" y2="400"/>
+        <line x1="150" y1="0" x2="150" y2="520"/>
+        <line x1="300" y1="0" x2="300" y2="520"/>
+        <line x1="450" y1="0" x2="450" y2="520"/>
+        <line x1="600" y1="0" x2="600" y2="520"/>
+        <line x1="750" y1="0" x2="750" y2="520"/>
+      </g>
+
+      <!-- SIMPLIFIED COUNTRY SHAPES (stylized) -->
+
+      <!-- Turkey -->
+      <path class="country" d="M370,90 L490,85 L510,100 L500,120 L460,125 L420,120 L380,115 Z"/>
+      <text x="435" y="107" font-family="Share Tech Mono" font-size="7" fill="#2a5560" text-anchor="middle">TURKEY</text>
+
+      <!-- Syria -->
+      <path class="country" d="M460,125 L510,120 L520,140 L505,160 L475,165 L455,150 L450,135 Z"/>
+      <text x="485" y="145" font-family="Share Tech Mono" font-size="6" fill="#2a5560" text-anchor="middle">SYRIA</text>
+
+      <!-- Iraq -->
+      <path class="country" d="M505,140 L555,135 L575,150 L570,190 L545,210 L515,205 L505,175 L500,155 Z"/>
+      <text x="537" y="175" font-family="Share Tech Mono" font-size="7" fill="#2a5560" text-anchor="middle">IRAQ</text>
+
+      <!-- Iran - highlighted orange -->
+      <path class="country highlight-iran" d="M575,130 L650,120 L690,130 L720,145 L730,170 L720,200 L700,220 L670,230 L640,225 L610,215 L585,200 L570,185 L570,165 L558,145 Z"/>
+      <text x="645" y="178" font-family="Share Tech Mono" font-size="8" fill="#ff8800" text-anchor="middle">IRAN</text>
+
+      <!-- Kuwait -->
+      <path class="country" d="M560,200 L578,198 L580,215 L562,215 Z"/>
+
+      <!-- Saudi Arabia -->
+      <path class="country highlight-saudi" d="M500,215 L575,205 L620,215 L650,230 L660,260 L650,300 L620,330 L580,345 L545,340 L515,320 L490,290 L480,260 L485,235 Z"/>
+      <text x="568" y="278" font-family="Share Tech Mono" font-size="8" fill="#ff3333" text-anchor="middle">SAUDI ARABIA</text>
+
+      <!-- UAE -->
+      <path class="country highlight-uae" d="M650,230 L690,225 L700,240 L690,255 L665,258 L650,248 Z"/>
+      <text x="673" y="243" font-family="Share Tech Mono" font-size="6" fill="#00ff88" text-anchor="middle">UAE</text>
+
+      <!-- Oman -->
+      <path class="country" d="M690,240 L730,230 L745,250 L740,290 L720,310 L695,300 L685,275 L682,255 Z"/>
+      <text x="712" y="270" font-family="Share Tech Mono" font-size="6" fill="#2a5560" text-anchor="middle">OMAN</text>
+
+      <!-- Yemen -->
+      <path class="country" d="M540,330 L600,315 L650,320 L665,335 L650,360 L610,370 L565,365 L540,350 Z"/>
+      <text x="600" y="347" font-family="Share Tech Mono" font-size="7" fill="#2a5560" text-anchor="middle">YEMEN</text>
+
+      <!-- Jordan -->
+      <path class="country" d="M480,170 L510,165 L518,185 L510,205 L490,208 L472,195 Z"/>
+      <text x="494" y="188" font-family="Share Tech Mono" font-size="6" fill="#2a5560" text-anchor="middle">JORDAN</text>
+
+      <!-- Israel/Palestine -->
+      <path class="country highlight-israel" d="M460,175 L475,172 L480,185 L472,195 L458,192 L455,182 Z"/>
+      <text x="467" y="183" font-family="Share Tech Mono" font-size="5" fill="#ffcc00" text-anchor="middle">ISR</text>
+
+      <!-- Lebanon -->
+      <path class="country" d="M458,158 L472,155 L475,170 L460,172 Z"/>
+
+      <!-- Egypt -->
+      <path class="country" d="M380,170 L455,165 L460,190 L455,230 L420,240 L385,240 L370,215 L370,190 Z"/>
+      <text x="413" y="205" font-family="Share Tech Mono" font-size="7" fill="#2a5560" text-anchor="middle">EGYPT</text>
+
+      <!-- Libya -->
+      <path class="country" d="M260,150 L375,150 L378,175 L370,215 L340,225 L290,220 L260,210 L248,185 Z"/>
+      <text x="315" y="185" font-family="Share Tech Mono" font-size="7" fill="#2a5560" text-anchor="middle">LIBYA</text>
+
+      <!-- Qatar -->
+      <path class="country" d="M628,230 L640,225 L645,240 L635,248 L628,242 Z"/>
+      <text x="635" y="237" font-family="Share Tech Mono" font-size="5" fill="#2a5560" text-anchor="middle">QAT</text>
+
+      <!-- Bahrain -->
+      <circle class="country" cx="618" cy="227" r="5"/>
+
+      <!-- Kuwait label -->
+      <text x="567" y="208" font-family="Share Tech Mono" font-size="5" fill="#2a5560" text-anchor="middle">KUW</text>
+
+      <!-- Afghanistan -->
+      <path class="country" d="M720,130 L790,120 L820,140 L825,170 L800,185 L760,180 L730,170 Z"/>
+      <text x="772" y="155" font-family="Share Tech Mono" font-size="7" fill="#2a5560" text-anchor="middle">AFGHAN.</text>
+
+      <!-- Pakistan -->
+      <path class="country" d="M730,170 L800,185 L835,180 L850,195 L845,230 L820,245 L780,240 L745,225 L730,200 Z"/>
+      <text x="790" y="210" font-family="Share Tech Mono" font-size="7" fill="#2a5560" text-anchor="middle">PAKISTAN</text>
+
+      <!-- Sudan -->
+      <path class="country" d="M380,240 L455,235 L460,290 L450,330 L410,340 L375,325 L360,290 L362,260 Z"/>
+      <text x="408" y="285" font-family="Share Tech Mono" font-size="7" fill="#2a5560" text-anchor="middle">SUDAN</text>
+
+      <!-- Ethiopia -->
+      <path class="country" d="M410,340 L455,330 L480,345 L490,380 L465,400 L425,395 L400,375 L395,355 Z"/>
+      <text x="442" y="370" font-family="Share Tech Mono" font-size="6" fill="#2a5560" text-anchor="middle">ETHIOPIA</text>
+
+      <!-- Somalia coast -->
+      <path class="country" d="M490,345 L530,335 L560,350 L565,400 L535,430 L505,415 L490,385 Z"/>
+      <text x="524" y="385" font-family="Share Tech Mono" font-size="6" fill="#2a5560" text-anchor="middle">SOMALIA</text>
+
+      <!-- Djibouti -->
+      <path class="country" d="M475,345 L490,340 L492,355 L478,357 Z"/>
+
+      <!-- RANGE RINGS -->
+      <!-- Iran ballistic missile range ~2000km centered on Tehran approx -->
+      <circle class="range-ring" cx="645" cy="175" r="140" stroke="#ff8800" stroke-width="1"/>
+      <circle class="range-ring" cx="645" cy="175" r="220" stroke="#ff8800" stroke-width="0.7" stroke-dasharray="2,6"/>
+
+      <!-- Israel Jericho III range ~5000km -->
+      <circle class="range-ring" cx="467" cy="183" r="180" stroke="#ffcc00" stroke-width="1"/>
+
+      <!-- US CENTCOM coverage -->
+      <circle class="range-ring" cx="560" cy="220" r="260" stroke="#00aaff" stroke-width="0.5" stroke-dasharray="6,4"/>
+
+      <!-- MILITARY BASES & ASSETS -->
+
+      <!-- USA - Al Udeid Air Base, Qatar -->
+      <g class="base-marker" onmouseenter="showTip(event,'Al Udeid AB','Qatar','USA','F-15, F-35, B-52, AWACS','~10,000','USCENTCOM HQ')" onmouseleave="hideTip()">
+        <circle class="base-dot" cx="632" cy="232" r="6" fill="rgba(0,170,255,0.2)" stroke="#00aaff" stroke-width="1.5" filter="url(#glow)"/>
+        <polygon points="632,225 636,232 628,232" fill="#00aaff" opacity="0.8"/>
+        <text class="base-label" x="640" y="228" fill="#00aaff">AL UDEID</text>
+      </g>
+
+      <!-- USA - Al Dhafra, UAE -->
+      <g class="base-marker" onmouseenter="showTip(event,'Al Dhafra AB','UAE','USA','F-35A, U-2, RQ-4','~3,500','5th Fleet Support')" onmouseleave="hideTip()">
+        <circle class="base-dot" cx="672" cy="242" r="5" fill="rgba(0,170,255,0.2)" stroke="#00aaff" stroke-width="1.5" filter="url(#glow)"/>
+        <polygon points="672,236 676,243 668,243" fill="#00aaff" opacity="0.8"/>
+        <text class="base-label" x="680" y="239" fill="#00aaff">AL DHAFRA</text>
+      </g>
+
+      <!-- USA - Camp Arifjan, Kuwait -->
+      <g class="base-marker" onmouseenter="showTip(event,'Camp Arifjan','Kuwait','USA','Army HQ, Patriot Missiles','~13,000','Land Forces Hub')" onmouseleave="hideTip()">
+        <circle class="base-dot" cx="568" cy="210" r="5" fill="rgba(0,170,255,0.2)" stroke="#00aaff" stroke-width="1.5" filter="url(#glow)"/>
+        <polygon points="568,204 572,210 564,210" fill="#00aaff" opacity="0.8"/>
+        <text class="base-label" x="576" y="207" fill="#00aaff">ARIFJAN</text>
+      </g>
+
+      <!-- USA - Diego Garcia (Indian Ocean) -->
+      <g class="base-marker" onmouseenter="showTip(event,'Diego Garcia','Indian Ocean','USA','B-2, B-52, SSN','~4,000','Strategic Bomber Base')" onmouseleave="hideTip()">
+        <circle class="base-dot" cx="780" cy="420" r="6" fill="rgba(0,170,255,0.2)" stroke="#00aaff" stroke-width="1.5" filter="url(#glow)"/>
+        <polygon points="780,413 784,420 776,420" fill="#00aaff" opacity="0.8"/>
+        <text class="base-label" x="788" y="416" fill="#00aaff">DIEGO GARCIA</text>
+      </g>
+
+      <!-- USA - Incirlik, Turkey -->
+      <g class="base-marker" onmouseenter="showTip(event,'Incirlik AB','Turkey','USA/NATO','F-16, ~50 B61 nukes','~1,500','NATO Nuclear Sharing')" onmouseleave="hideTip()">
+        <circle class="base-dot" cx="460" cy="105" r="5" fill="rgba(0,170,255,0.2)" stroke="#00aaff" stroke-width="1.5" filter="url(#glow)"/>
+        <polygon points="460,99 464,106 456,106" fill="#00aaff" opacity="0.8"/>
+        <text class="base-label" x="468" y="102" fill="#00aaff">INCIRLIK (B61)</text>
+      </g>
+
+      <!-- USA - Bahrain (5th Fleet) -->
+      <g class="base-marker" onmouseenter="showTip(event,'NSA Bahrain','Bahrain','USA','5th Fleet HQ, Destroyers','~7,000','Naval HQ CENTCOM')" onmouseleave="hideTip()">
+        <rect x="610" y="221" width="8" height="8" fill="rgba(0,170,255,0.2)" stroke="#00aaff" stroke-width="1.5" filter="url(#glow)"/>
+        <text class="base-label" x="620" y="228" fill="#00aaff">5TH FLEET</text>
+      </g>
+
+      <!-- USA - Djibouti (Camp Lemonnier) -->
+      <g class="base-marker" onmouseenter="showTip(event,'Camp Lemonnier','Djibouti','USA','Drones, JSOC, P-8','~4,000','Horn of Africa Ops')" onmouseleave="hideTip()">
+        <circle class="base-dot" cx="480" cy="350" r="5" fill="rgba(0,170,255,0.2)" stroke="#00aaff" stroke-width="1.5" filter="url(#glow)"/>
+        <polygon points="480,344 484,350 476,350" fill="#00aaff" opacity="0.8"/>
+        <text class="base-label" x="488" y="347" fill="#00aaff">LEMONNIER</text>
+      </g>
+
+      <!-- ISRAEL - Nevatim AB -->
+      <g class="base-marker" onmouseenter="showTip(event,'Nevatim AB','Israel','IDF','F-35I Adir, F-15I','Active','Primary Strike Base')" onmouseleave="hideTip()">
+        <circle class="base-dot" cx="462" cy="185" r="5" fill="rgba(255,204,0,0.2)" stroke="#ffcc00" stroke-width="1.5" filter="url(#glow)"/>
+        <polygon points="462,179 466,186 458,186" fill="#ffcc00" opacity="0.9"/>
+        <text class="base-label" x="452" y="196" fill="#ffcc00">NEVATIM</text>
+      </g>
+
+      <!-- ISRAEL - Dimona (Nuclear) -->
+      <g class="base-marker" onmouseenter="showTip(event,'Negev Nuclear Research','Israel','IDF','Plutonium Production','Classified','~90 est. warheads')" onmouseleave="hideTip()">
+        <circle cx="464" cy="192" r="7" fill="none" stroke="#ffcc00" stroke-width="1" stroke-dasharray="2,2" opacity="0.7"/>
+        <text x="464" y="195" font-family="Orbitron" font-size="7" fill="#ffcc00" text-anchor="middle">☢</text>
+        <text class="base-label" x="474" y="199" fill="#ffcc00">DIMONA ☢</text>
+      </g>
+
+      <!-- IRAN - Fordow enrichment -->
+      <g class="base-marker" onmouseenter="showTip(event,'Fordow Enrichment','Iran','IRGC','Uranium 60% enriched','Classified','Underground facility')" onmouseleave="hideTip()">
+        <circle cx="620" cy="168" r="7" fill="none" stroke="#ff8800" stroke-width="1" stroke-dasharray="2,2" opacity="0.7"/>
+        <text x="620" y="172" font-family="Orbitron" font-size="7" fill="#ff8800" text-anchor="middle">☢</text>
+        <text class="base-label" x="630" y="165" fill="#ff8800">FORDOW ☢</text>
+      </g>
+
+      <!-- IRAN - Natanz -->
+      <g class="base-marker" onmouseenter="showTip(event,'Natanz Nuclear','Iran','IRGC','Advanced centrifuges','Classified','Main enrichment site')" onmouseleave="hideTip()">
+        <circle cx="610" cy="182" r="7" fill="none" stroke="#ff8800" stroke-width="1" stroke-dasharray="2,2" opacity="0.7"/>
+        <text x="610" y="186" font-family="Orbitron" font-size="7" fill="#ff8800" text-anchor="middle">☢</text>
+        <text class="base-label" x="620" y="179" fill="#ff8800">NATANZ ☢</text>
+      </g>
+
+      <!-- IRAN - Shahab-3 / Ballistic missile base -->
+      <g class="base-marker" onmouseenter="showTip(event,'IRGC Missile Base','Iran','IRGC Aerospace','Shahab-3, Emad, Khorramshahr','~3,000 missiles','2,000km range')" onmouseleave="hideTip()">
+        <polygon points="648,155 653,165 643,165" fill="rgba(255,136,0,0.2)" stroke="#ff8800" stroke-width="1.5" filter="url(#glow)"/>
+        <text class="base-label" x="656" y="161" fill="#ff8800">IRGC MISSILES</text>
+      </g>
+
+      <!-- IRAN - Bandar Abbas Naval -->
+      <g class="base-marker" onmouseenter="showTip(event,'Bandar Abbas Naval','Iran','IRIN','Frigates, Subs, Speedboats','Active','Strait of Hormuz')" onmouseleave="hideTip()">
+        <rect x="673" y="249" width="7" height="7" fill="rgba(255,136,0,0.2)" stroke="#ff8800" stroke-width="1.5" filter="url(#glow)"/>
+        <text class="base-label" x="682" y="256" fill="#ff8800">BANDAR ABBAS</text>
+      </g>
+
+      <!-- IRAN - Houthi proxy (Yemen) -->
+      <g class="base-marker" onmouseenter="showTip(event,'Houthi Launch Sites','Yemen','IRGC Proxy','Ballistic missiles, Drones','Unknown','Iran-backed militia')" onmouseleave="hideTip()">
+        <polygon points="557,340 562,350 552,350" fill="rgba(255,136,0,0.2)" stroke="#ff8800" stroke-width="1.5" filter="url(#glow)"/>
+        <text class="base-label" x="565" y="346" fill="#ff8800">HOUTHI OPS</text>
+      </g>
+
+      <!-- SAUDI - Prince Sultan AB -->
+      <g class="base-marker" onmouseenter="showTip(event,'Prince Sultan AB','Saudi Arabia','RSAF/USA','F-15SA, Patriot, THAAD','~3,000 US','Joint Operations')" onmouseleave="hideTip()">
+        <circle class="base-dot" cx="555" cy="258" r="5" fill="rgba(255,51,51,0.2)" stroke="#ff3333" stroke-width="1.5" filter="url(#glow)"/>
+        <polygon points="555,252 559,259 551,259" fill="#ff3333" opacity="0.8"/>
+        <text class="base-label" x="563" y="256" fill="#ff3333">PRINCE SULTAN</text>
+      </g>
+
+      <!-- RUSSIA - Hmeimim, Syria -->
+      <g class="base-marker" onmouseenter="showTip(event,'Hmeimim AB','Syria','Russian AF','Su-35, Tu-22M, S-400','~4,000','Russia Middle East HQ')" onmouseleave="hideTip()">
+        <circle class="base-dot" cx="490" cy="148" r="5" fill="rgba(204,68,255,0.2)" stroke="#cc44ff" stroke-width="1.5" filter="url(#glow)"/>
+        <polygon points="490,142 494,149 486,149" fill="#cc44ff" opacity="0.8"/>
+        <text class="base-label" x="498" y="145" fill="#cc44ff">HMEIMIM (RU)</text>
+      </g>
+
+      <!-- RUSSIA - Tartus Naval Syria -->
+      <g class="base-marker" onmouseenter="showTip(event,'Tartus Naval Base','Syria','Russian Navy','Warships, Subs','~1,000','Only Med naval base')" onmouseleave="hideTip()">
+        <rect x="476" y="153" width="7" height="7" fill="rgba(204,68,255,0.2)" stroke="#cc44ff" stroke-width="1.5" filter="url(#glow)"/>
+        <text class="base-label" x="485" y="160" fill="#cc44ff">TARTUS (RU)</text>
+      </g>
+
+      <!-- Conflict zone markers -->
+      <!-- Gaza -->
+      <circle cx="455" cy="183" r="10" fill="rgba(255,51,51,0.08)" stroke="#ff3333" stroke-width="1" stroke-dasharray="2,2" opacity="0.8">
+        <animate attributeName="r" values="10;14;10" dur="2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite"/>
+      </circle>
+      <text x="455" y="180" font-family="Share Tech Mono" font-size="6" fill="#ff3333" text-anchor="middle">CONFLICT</text>
+
+      <!-- Yemen conflict -->
+      <circle cx="590" cy="345" r="12" fill="rgba(255,51,51,0.08)" stroke="#ff3333" stroke-width="1" stroke-dasharray="2,2" opacity="0.7">
+        <animate attributeName="r" values="12;16;12" dur="2.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.7;0.2;0.7" dur="2.5s" repeatCount="indefinite"/>
+      </circle>
+      <text x="590" y="342" font-family="Share Tech Mono" font-size="6" fill="#ff3333" text-anchor="middle">CONFLICT</text>
+
+      <!-- Strait of Hormuz label -->
+      <text x="685" y="265" font-family="Share Tech Mono" font-size="7" fill="#00aaff" text-anchor="middle" opacity="0.6">STRAIT OF HORMUZ</text>
+      <line x1="660" y1="262" x2="710" y2="262" stroke="#00aaff" stroke-width="0.5" opacity="0.4" stroke-dasharray="2,2"/>
+
+      <!-- Persian Gulf label -->
+      <text x="617" y="248" font-family="Share Tech Mono" font-size="7" fill="#1a4050" text-anchor="middle">PERSIAN GULF</text>
+
+      <!-- Red Sea -->
+      <text x="468" y="310" font-family="Share Tech Mono" font-size="7" fill="#1a4050" text-anchor="middle" transform="rotate(-45,468,310)">RED SEA</text>
+
+      <!-- Mediterranean -->
+      <text x="370" y="135" font-family="Share Tech Mono" font-size="7" fill="#1a4050" text-anchor="middle">MEDITERRANEAN SEA</text>
+
+      <!-- Arabian Sea -->
+      <text x="720" y="360" font-family="Share Tech Mono" font-size="7" fill="#1a4050" text-anchor="middle">ARABIAN SEA</text>
+
+      <!-- Carrier Group indicator (Arabian Sea) -->
+      <g onmouseenter="showTip(event,'USS Carrier Group','Arabian Sea','US Navy','CVN + 6 escorts, F/A-18','~6,000','Power Projection')" onmouseleave="hideTip()">
+        <circle cx="730" cy="320" r="8" fill="rgba(0,170,255,0.15)" stroke="#00aaff" stroke-width="1" filter="url(#glow)"/>
+        <text x="730" y="324" font-family="Orbitron" font-size="8" fill="#00aaff" text-anchor="middle">✦</text>
+        <text x="730" y="334" font-family="Share Tech Mono" font-size="7" fill="#00aaff" text-anchor="middle">CVN GRP</text>
+      </g>
+
+      <!-- Carrier Group 2 (Med) -->
+      <g onmouseenter="showTip(event,'USS Carrier Group 2','E. Mediterranean','US Navy','CVN + destroyer squadron','~6,000','Med Patrol')" onmouseleave="hideTip()">
+        <circle cx="380" cy="148" r="8" fill="rgba(0,170,255,0.15)" stroke="#00aaff" stroke-width="1" filter="url(#glow)"/>
+        <text x="380" y="152" font-family="Orbitron" font-size="8" fill="#00aaff" text-anchor="middle">✦</text>
+        <text x="380" y="162" font-family="Share Tech Mono" font-size="7" fill="#00aaff" text-anchor="middle">CVN GRP</text>
+      </g>
+
+    </svg>
+
+    <!-- Legend -->
+    <div class="map-legend">
+      <div style="font-family:Orbitron;font-size:8px;letter-spacing:2px;color:var(--dim);margin-bottom:5px">LEGEND</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#00aaff"></div><div class="legend-text">US MILITARY ASSETS</div></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ffcc00"></div><div class="legend-text">ISRAEL DEFENSE FORCES</div></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff8800"></div><div class="legend-text">IRAN / IRGC</div></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff3333"></div><div class="legend-text">SAUDI ARABIA</div></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#cc44ff"></div><div class="legend-text">RUSSIA</div></div>
+      <div class="legend-item"><svg width="20" height="10"><text x="0" y="9" font-size="10" fill="#aaa">☢</text></svg><div class="legend-text">NUCLEAR FACILITY</div></div>
+      <div class="legend-item">
+        <svg width="16" height="10"><circle cx="5" cy="5" r="5" fill="rgba(255,51,51,0.1)" stroke="#ff3333" stroke-width="1"/></svg>
+        <div class="legend-text">ACTIVE CONFLICT</div>
+      </div>
+      <div style="margin-top:6px;font-size:8px;color:#1a3a45;line-height:1.4">
+        DATA: SIPRI · IISS · FAS<br>OPEN SOURCE / DECLASSIFIED
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel">
+    <div class="panel-title">ASSET BREAKDOWN</div>
+    <div class="asset-panel" id="assetPanel">
+      <!-- Filled dynamically -->
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar">
+    <!-- Intel feed -->
+    <div class="intel-feed">
+      <div class="intel-feed-title">▶ OPEN SOURCE INTELLIGENCE FEED</div>
+      <div class="feed-scroll" id="feedScroll"></div>
+    </div>
+
+    <!-- Stockpile comparison -->
+    <div class="stockpile-bars">
+      <div class="stockpile-title">▶ NUCLEAR / MISSILE STOCKPILE COMPARISON (SIPRI 2024)</div>
+      <div class="stockpile-row">
+        <div class="stockpile-country" style="color:#cc44ff">RUSSIA</div>
+        <div class="stockpile-bar-wrap"><div class="stockpile-bar-fill" style="width:0%;background:#cc44ff" data-width="100"></div></div>
+        <div class="stockpile-val">6,257</div>
+      </div>
+      <div class="stockpile-row">
+        <div class="stockpile-country" style="color:#00aaff">USA</div>
+        <div class="stockpile-bar-wrap"><div class="stockpile-bar-fill" style="width:0%;background:#00aaff" data-width="88"></div></div>
+        <div class="stockpile-val">5,500</div>
+      </div>
+      <div class="stockpile-row">
+        <div class="stockpile-country" style="color:#ff8800">IRAN</div>
+        <div class="stockpile-bar-wrap"><div class="stockpile-bar-fill" style="width:0%;background:#ff8800" data-width="12"></div></div>
+        <div class="stockpile-val">~3,000 miss.</div>
+      </div>
+      <div class="stockpile-row">
+        <div class="stockpile-country" style="color:#ffcc00">ISRAEL</div>
+        <div class="stockpile-bar-wrap"><div class="stockpile-bar-fill" style="width:0%;background:#ffcc00" data-width="5"></div></div>
+        <div class="stockpile-val">~90 WH</div>
+      </div>
+      <div class="stockpile-row">
+        <div class="stockpile-country" style="color:#ff3333">SAUDI</div>
+        <div class="stockpile-bar-wrap"><div class="stockpile-bar-fill" style="width:0%;background:#ff3333" data-width="3"></div></div>
+        <div class="stockpile-val">0 (DF-21)</div>
+      </div>
+    </div>
+
+    <!-- Status grid -->
+    <div class="status-grid">
+      <div class="status-item">
+        <div class="status-label">DEFCON</div>
+        <div class="status-val" style="color:var(--yellow)">3</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">US BASES</div>
+        <div class="status-val">30+</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">CARRIERS</div>
+        <div class="status-val">2</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">CONFLICTS</div>
+        <div class="status-val" style="color:var(--red)">7</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Clock
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getUTCHours()).padStart(2,'0');
+  const m = String(now.getUTCMinutes()).padStart(2,'0');
+  const s = String(now.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s} UTC`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Tooltip
+function showTip(event, name, location, owner, assets, personnel, notes) {
+  const tip = document.getElementById('tooltip');
+  const container = document.getElementById('mapContainer');
+  const rect = container.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  const ownerColors = { 'USA':'#00aaff', 'IDF':'#ffcc00', 'IRGC':'#ff8800', 'IRGC Proxy':'#ff8800',
+    'Russian AF':'#cc44ff', 'Russian Navy':'#cc44ff', 'RSAF/USA':'#ff3333', 'US Navy':'#00aaff',
+    'IRIN':'#ff8800', 'IRGC Aerospace':'#ff8800' };
+  const color = ownerColors[owner] || '#00ff88';
+
+  tip.innerHTML = `
+    <div class="tt-name">${name}</div>
+    <div class="tt-row"><span>LOCATION</span><span class="tt-val">${location}</span></div>
+    <div class="tt-row"><span>OPERATOR</span><span style="color:${color}">${owner}</span></div>
+    <div class="tt-row"><span>ASSETS</span><span class="tt-val">${assets}</span></div>
+    <div class="tt-row"><span>PERSONNEL</span><span class="tt-val">${personnel}</span></div>
+    <div class="tt-row"><span>NOTES</span><span class="tt-val">${notes}</span></div>
+  `;
+
+  let tx = x + 15;
+  let ty = y - 10;
+  if (tx + 220 > container.offsetWidth) tx = x - 225;
+  if (ty + 140 > container.offsetHeight) ty = y - 150;
+
+  tip.style.left = tx + 'px';
+  tip.style.top = ty + 'px';
+  tip.style.display = 'block';
+}
+function hideTip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+// Country selection
+const countryData = {
+  usa: {
+    title: 'UNITED STATES',
+    color: '#00aaff',
+    sections: [
+      { title: 'AIR ASSETS', items: [
+        { name: 'F-35A/B/C Lightning II', count: '450+', pct: 90 },
+        { name: 'F-15E/SA Strike Eagle', count: '200+', pct: 60 },
+        { name: 'B-52H Stratofortress', count: '76', pct: 40 },
+        { name: 'B-2 Spirit Stealth', count: '20', pct: 15 },
+        { name: 'MQ-9 Reaper Drone', count: '300+', pct: 70 },
+      ]},
+      { title: 'NAVAL ASSETS', items: [
+        { name: 'Aircraft Carriers (CVN)', count: '11', pct: 85 },
+        { name: 'Destroyers (Arleigh Burke)', count: '90+', pct: 75 },
+        { name: 'SSN Attack Submarines', count: '50+', pct: 65 },
+        { name: 'SSBN Ballistic Missile', count: '14', pct: 50 },
+      ]},
+      { title: 'MISSILE / WMD', items: [
+        { name: 'Nuclear Warheads (total)', count: '5,500', pct: 95 },
+        { name: 'Deployed warheads', count: '1,700', pct: 55 },
+        { name: 'Tomahawk LACM', count: '4,000+', pct: 80 },
+        { name: 'Patriot PAC-3 Batteries', count: '15+', pct: 60 },
+      ]},
+    ]
+  },
+  israel: {
+    title: 'ISRAEL (IDF)',
+    color: '#ffcc00',
+    sections: [
+      { title: 'AIR FORCE', items: [
+        { name: 'F-35I Adir', count: '36', pct: 55 },
+        { name: 'F-15I Ra\'am', count: '25', pct: 40 },
+        { name: 'F-16I Sufa', count: '175', pct: 75 },
+        { name: 'Heron / Hermes Drones', count: '200+', pct: 70 },
+      ]},
+      { title: 'NUCLEAR (EST.)', items: [
+        { name: 'Nuclear Warheads (est.)', count: '~90', pct: 45 },
+        { name: 'Jericho III ICBM', count: 'Classified', pct: 30 },
+        { name: 'Dolphin-class SSK', count: '6', pct: 35 },
+        { name: 'Arrow 3 ABM', count: 'Active', pct: 60 },
+      ]},
+    ]
+  },
+  iran: {
+    title: 'IRAN (IRGC)',
+    color: '#ff8800',
+    sections: [
+      { title: 'BALLISTIC MISSILES', items: [
+        { name: 'Shahab-3 (MRBM)', count: '300+', pct: 70 },
+        { name: 'Emad / Ghadr', count: '100+', pct: 45 },
+        { name: 'Khorramshahr', count: 'Active', pct: 40 },
+        { name: 'Fateh-110 SRBM', count: '500+', pct: 80 },
+        { name: 'Shahed-136 Drones', count: '2,000+', pct: 90 },
+      ]},
+      { title: 'NUCLEAR PROGRAM', items: [
+        { name: 'Enrichment Level', count: '60%', pct: 60 },
+        { name: 'Enriched Uranium (kg)', count: '~6,200', pct: 85 },
+        { name: 'Advanced Centrifuges', count: 'IR-6/9', pct: 70 },
+        { name: 'Breakout Time (est.)', count: '~1 week', pct: 90 },
+      ]},
+      { title: 'PROXY FORCES', items: [
+        { name: 'Hezbollah (Lebanon)', count: '~150k rockets', pct: 85 },
+        { name: 'Houthis (Yemen)', count: 'Active', pct: 60 },
+        { name: 'PMF (Iraq)', count: '130k fighters', pct: 75 },
+        { name: 'Hamas (Gaza)', count: 'Degraded', pct: 30 },
+      ]},
+    ]
+  },
+  saudi: {
+    title: 'SAUDI ARABIA',
+    color: '#ff3333',
+    sections: [
+      { title: 'AIR FORCE', items: [
+        { name: 'F-15SA Advanced', count: '84', pct: 60 },
+        { name: 'Eurofighter Typhoon', count: '72', pct: 55 },
+        { name: 'F-15C/D Eagle', count: '70+', pct: 50 },
+        { name: 'Tornado IDS', count: '50+', pct: 35 },
+      ]},
+      { title: 'MISSILE DEFENSE', items: [
+        { name: 'Patriot PAC-2/3', count: '9 batteries', pct: 65 },
+        { name: 'THAAD System', count: '1 battery', pct: 20 },
+        { name: 'DF-21 MRBM (CN)', count: 'Deployed', pct: 50 },
+        { name: 'CSS-5 Ballistic', count: 'Est. 60', pct: 40 },
+      ]},
+    ]
+  },
+  uae: {
+    title: 'UNITED ARAB EMIRATES',
+    color: '#00ff88',
+    sections: [
+      { title: 'AIR FORCE', items: [
+        { name: 'F-16E/F Block 60', count: '79', pct: 70 },
+        { name: 'Mirage 2000-9', count: '63', pct: 55 },
+        { name: 'F-35A (ordered)', count: '50 ordered', pct: 30 },
+        { name: 'MALE Drones', count: 'Active', pct: 50 },
+      ]},
+      { title: 'DEFENSE SYSTEMS', items: [
+        { name: 'Patriot PAC-3', count: '3 batteries', pct: 45 },
+        { name: 'THAAD (US deployed)', count: '1', pct: 20 },
+        { name: 'Sky Hunter ABM', count: 'Active', pct: 30 },
+      ]},
+    ]
+  },
+  russia: {
+    title: 'RUSSIA (SYRIA OPS)',
+    color: '#cc44ff',
+    sections: [
+      { title: 'DEPLOYED ASSETS', items: [
+        { name: 'Su-35S Flanker-E', count: '12', pct: 40 },
+        { name: 'Su-34 Fullback', count: '8', pct: 30 },
+        { name: 'Tu-22M3 Backfire', count: 'Rotational', pct: 25 },
+        { name: 'S-400 Triumf SAM', count: '1 battery', pct: 60 },
+      ]},
+      { title: 'TOTAL ARSENAL', items: [
+        { name: 'Nuclear Warheads', count: '6,257', pct: 100 },
+        { name: 'Deployed warheads', count: '1,558', pct: 58 },
+        { name: 'Iskander SRBM', count: '100+ lnchr', pct: 70 },
+      ]},
+    ]
+  }
+};
+
+function selectCountry(id) {
+  document.querySelectorAll('.country-card').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.card-${id}`)?.classList.add('active');
+  renderAssetPanel(id);
+}
+
+function renderAssetPanel(id) {
+  const data = countryData[id];
+  if (!data) return;
+  const panel = document.getElementById('assetPanel');
+  let html = `<div style="font-family:Orbitron;font-size:10px;color:${data.color};letter-spacing:2px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">${data.title}</div>`;
+  data.sections.forEach(sec => {
+    html += `<div class="asset-section"><div class="asset-section-title">${sec.title}</div>`;
+    sec.items.forEach(item => {
+      html += `
+        <div class="asset-row">
+          <div class="asset-name">${item.name}</div>
+          <div class="asset-count">${item.count}</div>
+        </div>
+        <div class="asset-bar"><div class="asset-bar-fill" style="width:0%;background:${data.color}" data-width="${item.pct}"></div></div>
+      `;
+    });
+    html += `</div>`;
+  });
+  panel.innerHTML = html;
+
+  // Animate bars
+  setTimeout(() => {
+    panel.querySelectorAll('.asset-bar-fill').forEach(bar => {
+      bar.style.width = bar.dataset.width + '%';
+    });
+  }, 50);
+}
+
+// Init asset panel
+selectCountry('usa');
+
+// Animate stockpile bars
+setTimeout(() => {
+  document.querySelectorAll('.stockpile-bar-fill').forEach(bar => {
+    bar.style.width = bar.dataset.width + '%';
+  });
+}, 300);
+
+// Intel feed
+const feedItems = [
+  { type: 'critical', time: '00:04', text: 'IRAN: Fordow enrichment at 60% — IAEA confirms advanced centrifuge cascade operational' },
+  { type: 'warning', time: '00:12', text: 'HOUTHI: Ballistic missile launch detected over Red Sea corridor — 5th Fleet on alert' },
+  { type: 'info', time: '00:18', text: 'USA: USS Gerald R. Ford CSG entered Arabian Sea — 6 escort vessels, F/A-18 wings deployed' },
+  { type: 'warning', time: '00:31', text: 'IRAN: IRGC Navy speedboat swarm exercise — Strait of Hormuz, 200 vessels' },
+  { type: 'info', time: '00:44', text: 'ISRAEL: Arrow 3 intercept test successful — ICBM-range target neutralized above atmosphere' },
+  { type: 'critical', time: '01:02', text: 'IRAN: Breakout timeline est. under 2 weeks if enrichment reaches 90% — US intel assessment' },
+  { type: 'info', time: '01:15', text: 'USA: USAF B-52H departed Diego Garcia — reported training mission over Indian Ocean' },
+  { type: 'warning', time: '01:28', text: 'HOUTHI: Anti-ship missile targeted commercial vessel — USS Gravely intercept successful' },
+  { type: 'info', time: '01:47', text: 'SAUDI: RSAF F-15SA intercept of drone over southern border — Houthi-attributed' },
+  { type: 'critical', time: '02:03', text: 'RUSSIA: Su-35 sorties increased over N. Syria — IAEA monitoring Latakia region' },
+  { type: 'info', time: '02:19', text: 'USA: Patriot battery redeployment — 2 additional batteries to Al Udeid authorized' },
+  { type: 'warning', time: '02:34', text: 'IRAN: Underground facility expansion detected via satellite — Natanz site' },
+];
+
+const feedEl = document.getElementById('feedScroll');
+feedItems.forEach(item => {
+  const div = document.createElement('div');
+  div.className = `feed-item feed-${item.type}`;
+  div.innerHTML = `<div class="feed-time">${item.time}</div><div class="feed-text">${item.text}</div>`;
+  feedEl.appendChild(div);
+});
+
+// Auto scroll feed
+let feedTop = 0;
+setInterval(() => {
+  feedTop += 1;
+  const totalHeight = feedEl.scrollHeight;
+  const visible = feedEl.parentElement.clientHeight - 28;
+  if (feedTop > totalHeight - visible) feedTop = 0;
+  feedEl.style.transform = `translateY(-${feedTop}px)`;
+}, 40);
+</script>
+</body>
+</html>
