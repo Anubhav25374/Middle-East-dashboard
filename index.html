@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CENTCOM // Middle East Military Intelligence</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="header-title">CENTCOM <span class="sep">//</span> <span class="sub">MIDDLE EAST MILITARY INTELLIGENCE</span></div>
+      <div class="classification">CLASSIFICATION: <span class="blink-red">OPEN SOURCE INTEL</span></div>
+    </div>
+    <div class="header-stats">
+      <div class="stat">TRACKED ASSETS <span class="val">847</span></div>
+      <div class="stat">ACTIVE BASES <span class="val">124</span></div>
+      <div class="stat">CONFLICT ZONES <span class="val red blink-red">7</span></div>
+      <div class="stat">THREAT LEVEL <span class="val red blink-red">ELEVATED</span></div>
+    </div>
+    <div class="clock" id="clock">--:--:-- UTC</div>
+  </header>
+
+  <!-- LEFT PANEL -->
+  <aside class="panel left-panel">
+    <div class="panel-title">COUNTRY INTELLIGENCE</div>
+    <div class="country-list" id="countryList">
+
+      <div class="country-card card-usa active" onclick="selectCountry('usa')">
+        <div class="card-header">
+          <div class="card-name">UNITED STATES</div>
+          <div class="threat-badge threat-low">ALLY</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">BASES IN REGION<span>30+</span></div>
+          <div class="stat-item">PERSONNEL<span>~40,000</span></div>
+          <div class="stat-item">WARHEADS (TOTAL)<span>5,500</span></div>
+          <div class="stat-item">CARRIER GROUPS<span>2</span></div>
+        </div>
+      </div>
+
+      <div class="country-card card-israel" onclick="selectCountry('israel')">
+        <div class="card-header">
+          <div class="card-name">ISRAEL</div>
+          <div class="threat-badge threat-medium">PARTNER</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">AIRBASES<span>10</span></div>
+          <div class="stat-item">ACTIVE FORCES<span>170,000</span></div>
+          <div class="stat-item">EST. WARHEADS<span>~90</span></div>
+          <div class="stat-item">MISSILE SYSTEMS<span>Jericho III</span></div>
+        </div>
+      </div>
+
+      <div class="country-card card-iran" onclick="selectCountry('iran')">
+        <div class="card-header">
+          <div class="card-name">IRAN</div>
+          <div class="threat-badge threat-critical">ADVERSARY</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">MISSILE SITES<span>25+</span></div>
+          <div class="stat-item">ACTIVE FORCES<span>610,000</span></div>
+          <div class="stat-item">NUCLEAR STATUS<span>~60% enrich</span></div>
+          <div class="stat-item">PROXY FORCES<span>Hezbollah+</span></div>
+        </div>
+      </div>
+
+      <div class="country-card card-saudi" onclick="selectCountry('saudi')">
+        <div class="card-header">
+          <div class="card-name">SAUDI ARABIA</div>
+          <div class="threat-badge threat-medium">PARTNER</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">AIR BASES<span>8</span></div>
+          <div class="stat-item">ACTIVE FORCES<span>257,000</span></div>
+          <div class="stat-item">MISSILE SYSTEM<span>DF-21 (CN)</span></div>
+          <div class="stat-item">F-15 FLEET<span>200+</span></div>
+        </div>
+      </div>
+
+      <div class="country-card card-uae" onclick="selectCountry('uae')">
+        <div class="card-header">
+          <div class="card-name">UAE</div>
+          <div class="threat-badge threat-low">PARTNER</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">US BASE<span>Al Dhafra</span></div>
+          <div class="stat-item">ACTIVE FORCES<span>63,000</span></div>
+          <div class="stat-item">F-35 ORDER<span>50 units</span></div>
+          <div class="stat-item">PATRIOT BATT.<span>3</span></div>
+        </div>
+      </div>
+
+      <div class="country-card card-russia" onclick="selectCountry('russia')">
+        <div class="card-header">
+          <div class="card-name">RUSSIA (SYRIA)</div>
+          <div class="threat-badge threat-high">MONITOR</div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item">BASES (SYRIA)<span>2</span></div>
+          <div class="stat-item">NAVAL (MED)<span>Active</span></div>
+          <div class="stat-item">S-400 DEPLOY<span>Active</span></div>
+          <div class="stat-item">TOTAL WARHEADS<span>6,257</span></div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- MAP -->
+  <main class="panel map-container">
+    <div id="map"></div>
+    <div class="map-overlay-title">REAL-TIME ASSET TRACKER — MIDDLE EAST AOR</div>
+    <div class="map-legend" id="mapLegend">
+      <div class="legend-title">LEGEND</div>
+      <div class="legend-item"><span class="ldot" style="background:#00aaff"></span>US MILITARY</div>
+      <div class="legend-item"><span class="ldot" style="background:#ffcc00"></span>ISRAEL / IDF</div>
+      <div class="legend-item"><span class="ldot" style="background:#ff8800"></span>IRAN / IRGC</div>
+      <div class="legend-item"><span class="ldot" style="background:#ff3333"></span>SAUDI ARABIA</div>
+      <div class="legend-item"><span class="ldot" style="background:#cc44ff"></span>RUSSIA</div>
+      <div class="legend-item"><span class="ldot" style="background:#00ff88"></span>UAE / PARTNER</div>
+      <div class="legend-item"><span class="ldot nuke"></span>NUCLEAR FACILITY ☢</div>
+      <div class="legend-item"><span class="ldot conflict"></span>CONFLICT ZONE</div>
+      <div class="legend-src">DATA: SIPRI · IISS · FAS · OPEN SOURCE</div>
+    </div>
+  </main>
+
+  <!-- RIGHT PANEL -->
+  <aside class="panel right-panel">
+    <div class="panel-title">ASSET BREAKDOWN</div>
+    <div class="asset-panel" id="assetPanel"></div>
+  </aside>
+
+  <!-- BOTTOM BAR -->
+  <footer class="bottom-bar">
+    <div class="intel-feed">
+      <div class="feed-header">▶ OPEN SOURCE INTELLIGENCE FEED</div>
+      <div class="feed-track" id="feedTrack"></div>
+    </div>
+    <div class="stockpile-section">
+      <div class="stockpile-title">▶ NUCLEAR / MISSILE STOCKPILE (SIPRI 2024)</div>
+      <div class="stockpile-row">
+        <span class="sc" style="color:#cc44ff">RUSSIA</span>
+        <div class="sbar-wrap"><div class="sbar-fill" style="background:#cc44ff" data-w="100"></div></div>
+        <span class="sv">6,257</span>
+      </div>
+      <div class="stockpile-row">
+        <span class="sc" style="color:#00aaff">USA</span>
+        <div class="sbar-wrap"><div class="sbar-fill" style="background:#00aaff" data-w="88"></div></div>
+        <span class="sv">5,500</span>
+      </div>
+      <div class="stockpile-row">
+        <span class="sc" style="color:#ff8800">IRAN</span>
+        <div class="sbar-wrap"><div class="sbar-fill" style="background:#ff8800" data-w="12"></div></div>
+        <span class="sv">~3,000 miss.</span>
+      </div>
+      <div class="stockpile-row">
+        <span class="sc" style="color:#ffcc00">ISRAEL</span>
+        <div class="sbar-wrap"><div class="sbar-fill" style="background:#ffcc00" data-w="5"></div></div>
+        <span class="sv">~90 WH</span>
+      </div>
+      <div class="stockpile-row">
+        <span class="sc" style="color:#ff3333">SAUDI</span>
+        <div class="sbar-wrap"><div class="sbar-fill" style="background:#ff3333" data-w="3"></div></div>
+        <span class="sv">0 (DF-21)</span>
+      </div>
+    </div>
+    <div class="status-grid">
+      <div class="status-item">
+        <div class="sl">DEFCON</div>
+        <div class="sv-big" style="color:var(--yellow)">3</div>
+      </div>
+      <div class="status-item">
+        <div class="sl">US BASES</div>
+        <div class="sv-big">30+</div>
+      </div>
+      <div class="status-item">
+        <div class="sl">CARRIERS</div>
+        <div class="sv-big">2</div>
+      </div>
+      <div class="status-item">
+        <div class="sl">CONFLICTS</div>
+        <div class="sv-big" style="color:var(--red)">7</div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
