@@ -16,6 +16,8 @@ This is a single-page intelligence dashboard that visualizes open-source, declas
 
 All data is sourced from publicly available, open-source references including **SIPRI**, **IISS Military Balance**, **FAS Nuclear Notebook**, and the **Arms Control Association**.
 
+![alt text](https://github.com/Anubhav25374/Middle-East-dashboard/blob/26f4f70fa65b32a3243176840b7ae7192a049cc2/Screenshot%202026-03-03%20185420.png))
+
 ---
 
 ## ✨ Features
@@ -243,3 +245,9 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 <div align="center">
   <sub>Built with open-source intelligence. Data from SIPRI · IISS · FAS · Arms Control Association.</sub>
 </div>
+
+
+---
+## Live
+
+[Click here]([https://www.google.com](https://middle-easr-dashboard.netlify.app/))
