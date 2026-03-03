@@ -250,4 +250,4 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 ---
 ## Live
 
-[Click here]([https://www.google.com](https://middle-easr-dashboard.netlify.app/))
+[Click here](https://middle-easr-dashboard.netlify.app/)
